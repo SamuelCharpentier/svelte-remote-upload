@@ -2,21 +2,17 @@
 	import { myForm } from '$lib/form.remote';
 	import { formSchema } from '$lib/form.schema';
 	import FileUploadOnSubmitField from './FileUploadOnSubmitField.svelte';
-	import UploadSubmitButton from './UploadSubmitButton.svelte';
-	import { setDeferredUploadContext } from './deferredUpload';
 
-	// Provide the coordinator the submit button uses to upload every deferred
-	// field concurrently before the form is actually submitted.
-	setDeferredUploadContext();
-
-	let imageFields: Array<{ reset: () => void } | undefined> = $state([]);
+	let imageFieldsUploading: Array<boolean> = $state([false, false, false]);
+	let anyImageFieldUploading = $derived(imageFieldsUploading.some((uploading) => uploading));
 </script>
 
 <form
 	{...myForm.preflight(formSchema).enhance(async ({ submit, element }) => {
+		// element.reset() fires the form's reset event, which each field listens
+		// for to clear its own upload state — no manual per-field reset needed.
 		if (await submit()) {
 			element.reset();
-			for (const imageField of imageFields) imageField?.reset();
 		}
 	})}
 	enctype="multipart/form-data"
@@ -45,19 +41,20 @@
 
 	{#each [0, 1, 2] as index (index)}
 		<FileUploadOnSubmitField
-			bind:this={imageFields[index]}
+			bind:uploading={imageFieldsUploading[index]}
 			field={myForm.fields.images[index]}
 			label="Image:"
 		/>
 	{/each}
 
-	<UploadSubmitButton pending={!!myForm.pending}>
+	<button type="submit" disabled={!!myForm.pending || anyImageFieldUploading}>
 		{#if myForm.pending}
 			Submitting…
 		{:else}
 			Submit
 		{/if}
-	</UploadSubmitButton>
+	</button>
+	<button type="reset" disabled={!!myForm.pending || anyImageFieldUploading}> Reset </button>
 
 	<p>{JSON.stringify(myForm.result)}</p>
 </form>
@@ -84,5 +81,18 @@
 		padding: 0.5rem;
 		border: 1px solid #ccc;
 		border-radius: 4px;
+	}
+	button {
+		padding: 0.75rem;
+		border: none;
+		border-radius: 4px;
+		background-color: #007bff;
+		color: white;
+		font-size: 1rem;
+		cursor: pointer;
+	}
+	button[disabled] {
+		background-color: #6c757d;
+		cursor: not-allowed;
 	}
 </style>

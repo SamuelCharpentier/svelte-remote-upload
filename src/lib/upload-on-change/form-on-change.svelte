@@ -38,25 +38,14 @@
 			<span class="hint">{issue.message}</span>
 		{/each}
 	</label>
-
-	<FileUploadOnChangeField
-		bind:this={imageFields[0]}
-		bind:uploading={imageFieldsUploading[0]}
-		field={myForm.fields.images[0]}
-		label="Image:"
-	/>
-	<FileUploadOnChangeField
-		bind:this={imageFields[1]}
-		bind:uploading={imageFieldsUploading[1]}
-		field={myForm.fields.images[1]}
-		label="Image:"
-	/>
-	<FileUploadOnChangeField
-		bind:this={imageFields[2]}
-		bind:uploading={imageFieldsUploading[2]}
-		field={myForm.fields.images[2]}
-		label="Image:"
-	/>
+	{#each [0, 1, 2] as index (index)}
+		<FileUploadOnChangeField
+			bind:this={imageFields[index]}
+			bind:uploading={imageFieldsUploading[index]}
+			field={myForm.fields.images[index]}
+			label="Image:"
+		/>
+	{/each}
 
 	<button type="submit" disabled={!!myForm.pending || anyImageFieldUploading}>
 		{#if myForm.pending}

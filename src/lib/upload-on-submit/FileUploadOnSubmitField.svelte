@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { RemoteFormField } from '@sveltejs/kit';
-	import { getDeferredUploadContext } from './deferredUpload';
+	import { registerUploadOnSubmit } from './uploadOnSubmit';
 
 	interface Props {
 		/** The remote form field this control is bound to. */
@@ -10,6 +10,8 @@
 		accept?: string;
 		/** Endpoint that accepts the file and returns `{ id }`. */
 		uploadUrl?: string;
+		/** Out: whether an upload is currently in flight. */
+		uploading?: boolean;
 	}
 
 	let {
@@ -17,6 +19,7 @@
 		label = 'File:',
 		accept = 'image/jpeg,image/png',
 		uploadUrl = '/api/upload',
+		uploading = $bindable(false),
 	}: Props = $props();
 
 	let selectedFile: File | null = $state(null);
@@ -24,19 +27,13 @@
 	// The File that produced `uploadedId`, so a re-submit can skip re-uploading.
 	let uploadedFile: File | null = null;
 	let progress = $state(0);
-	let uploading = $state(false);
 	let uploadError = $state('');
 
 	// Deferred upload is a JS-only enhancement. Until the component mounts we
 	// render the no-JS variant: a plain file field that posts the File directly.
 	let enhanced = $state(false);
-
-	const coordinator = getDeferredUploadContext();
-
 	onMount(() => {
 		enhanced = true;
-		// Hand the submit button a closure it can call to upload this field.
-		return coordinator?.register(upload);
 	});
 
 	/** Clear the upload state, e.g. after a successful form submission. */
@@ -46,6 +43,22 @@
 		uploadedFile = null;
 		progress = 0;
 		uploadError = '';
+	}
+
+	// Attachment on the hidden input: register this field's upload with the form
+	// (which wires up the submit-button interception) and clear our state on a
+	// native form reset. Both are the field's own responsibility — the parent
+	// just drops the component in.
+	function connectToForm(node: HTMLInputElement) {
+		const form = node.form;
+		if (!form) return;
+		const unregister = registerUploadOnSubmit(form, upload);
+		const handleReset = () => reset();
+		form.addEventListener('reset', handleReset);
+		return () => {
+			unregister();
+			form.removeEventListener('reset', handleReset);
+		};
 	}
 
 	function handleFileChange(event: Event) {
@@ -131,8 +144,8 @@
 
 {#if enhanced}
 	<!-- JS path: submit the uploaded file's id reference instead of the file.
-	     It stays empty until the submit button triggers the upload. -->
-	<input {...field.as('hidden', uploadedId)} />
+	     It stays empty until the submit button click triggers the upload. -->
+	<input {...field.as('hidden', uploadedId)} {@attach connectToForm} />
 {/if}
 
 {#each field.issues() ?? [] as issue (issue.message)}
