@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import type { RemoteFormField } from '@sveltejs/kit';
+	import type { RemoteForm, RemoteFormField } from '@sveltejs/kit';
 	import { registerUploadOnSubmit } from './uploadOnSubmit';
 
 	interface Props {
+		/** The remote form this field belongs to, validated before uploading. */
+		form: RemoteForm<any, any>;
 		/** The remote form field this control is bound to. */
 		field: RemoteFormField<File | string>;
 		label?: string;
@@ -15,6 +16,7 @@
 	}
 
 	let {
+		form,
 		field,
 		label = 'File:',
 		accept = 'image/jpeg,image/png',
@@ -29,13 +31,6 @@
 	let progress = $state(0);
 	let uploadError = $state('');
 
-	// Deferred upload is a JS-only enhancement. Until the component mounts we
-	// render the no-JS variant: a plain file field that posts the File directly.
-	let enhanced = $state(false);
-	onMount(() => {
-		enhanced = true;
-	});
-
 	/** Clear the upload state, e.g. after a successful form submission. */
 	export function reset() {
 		selectedFile = null;
@@ -45,19 +40,19 @@
 		uploadError = '';
 	}
 
-	// Attachment on the hidden input: register this field's upload with the form
-	// (which wires up the submit-button interception) and clear our state on a
-	// native form reset. Both are the field's own responsibility — the parent
-	// just drops the component in.
-	function connectToForm(node: HTMLInputElement) {
-		const form = node.form;
-		if (!form) return;
-		const unregister = registerUploadOnSubmit(form, upload);
+	// Attachment on the field's label: register this field's upload with the form
+	// so the submit-click coordinator can validate and then run it before the form
+	// is submitted, and clear our state on a native form reset. Both are the
+	// field's own responsibility — the parent just drops the component in.
+	function connectToForm(node: HTMLElement) {
+		const element = node.closest('form');
+		if (!element) return;
+		const unregister = registerUploadOnSubmit(element, form, upload);
 		const handleReset = () => reset();
-		form.addEventListener('reset', handleReset);
+		element.addEventListener('reset', handleReset);
 		return () => {
 			unregister();
-			form.removeEventListener('reset', handleReset);
+			element.removeEventListener('reset', handleReset);
 		};
 	}
 
@@ -133,20 +128,19 @@
 	}
 </script>
 
-<label>
+<label {@attach connectToForm}>
 	{label}
-	{#if enhanced}
-		<input type="file" {accept} disabled={uploading} onchange={handleFileChange} />
+	{#if uploadedId}
+		<!-- Uploaded: submit the id reference in place of the file, so the form
+		     sends the lightweight reference rather than re-posting the file. -->
+		<input {...field.as('hidden', uploadedId)} />
+		<span class="uploaded">{selectedFile?.name ?? 'File uploaded'}</span>
 	{:else}
-		<input {...field.as('file')} {accept} />
+		<!-- The real File is the field's value, so the coordinator can validate the
+		     chosen file (type, size…) and the rest of the form before uploading. -->
+		<input {...field.as('file')} {accept} disabled={uploading} onchange={handleFileChange} />
 	{/if}
 </label>
-
-{#if enhanced}
-	<!-- JS path: submit the uploaded file's id reference instead of the file.
-	     It stays empty until the submit button click triggers the upload. -->
-	<input {...field.as('hidden', uploadedId)} {@attach connectToForm} />
-{/if}
 
 {#each field.issues() ?? [] as issue (issue.message)}
 	<span class="hint">{issue.message}</span>
@@ -172,6 +166,11 @@
 		padding: 0.5rem;
 		border: 1px solid #ccc;
 		border-radius: 4px;
+	}
+	.uploaded {
+		font-weight: normal;
+		font-size: 0.875rem;
+		color: #28a745;
 	}
 	progress {
 		width: 100%;

@@ -41,6 +41,7 @@
 
 	{#each [0, 1, 2] as index (index)}
 		<FileUploadOnSubmitField
+			form={myForm}
 			bind:uploading={imageFieldsUploading[index]}
 			field={myForm.fields.images[index]}
 			label="Image:"
