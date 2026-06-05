@@ -1,7 +1,9 @@
 import * as v from 'valibot';
 
 // The actual file, submitted directly by the browser when JS is unavailable.
-const imageFile = v.pipe(
+// Exported so the field can validate a chosen file before uploading and the
+// upload endpoint can re-validate the received file with the same rules.
+export const imageFile = v.pipe(
 	v.file('Please select an image file.'),
 	v.mimeType(['image/jpeg', 'image/png'], 'Please select a JPEG or PNG file.'),
 	v.maxSize(1024 * 1024 * 10, 'Please select a file smaller than 10 MB.'),

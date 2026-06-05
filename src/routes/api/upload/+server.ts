@@ -1,23 +1,19 @@
 import { error, json } from '@sveltejs/kit';
+import * as v from 'valibot';
+import { imageFile } from '$lib/form.schema';
 import { saveUpload } from '$lib/server/uploads';
 import type { RequestHandler } from './$types';
 
-const MAX_SIZE = 1024 * 1024 * 20;
-const ALLOWED_TYPES = ['image/jpeg', 'image/png'];
-
 export const POST: RequestHandler = async ({ request }) => {
 	const data = await request.formData();
-	const file = data.get('file');
 
-	if (!(file instanceof File)) {
-		error(400, 'No file was provided.');
+	// Client-side validation can be bypassed, so re-validate the file here with
+	// the same schema the form uses.
+	const result = v.safeParse(imageFile, data.get('file'));
+	if (!result.success) {
+		error(400, result.issues[0].message);
 	}
-	if (!ALLOWED_TYPES.includes(file.type)) {
-		error(415, 'Please upload a JPEG or PNG image.');
-	}
-	if (file.size > MAX_SIZE) {
-		error(413, 'Please upload a file smaller than 20 MB.');
-	}
+	const file = result.output;
 
 	const id = saveUpload({
 		name: file.name,

@@ -15,9 +15,9 @@ const EXPIRATION_TIME = 1000 * 60 * 10; // 10 minutes
 // storage (S3, R2, etc.) and the id would be the storage key.
 const uploads = new Map<string, StoredUpload>();
 
-export function saveUpload(upload: StoredUpload): string {
+export function saveUpload(upload: Omit<StoredUpload, 'expireAt'>): string {
 	const id = randomUUID();
-	uploads.set(id, upload);
+	uploads.set(id, { ...upload, expireAt: Date.now() + EXPIRATION_TIME });
 	return id;
 }
 

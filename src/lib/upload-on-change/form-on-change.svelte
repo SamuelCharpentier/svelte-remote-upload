@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { myForm } from '$lib/form.remote';
-	import { formSchema } from '$lib/form.schema';
+	import { formSchema, imageFile } from '$lib/form.schema';
 	import FileUploadOnChangeField from './FileUploadOnChangeField.svelte';
 
 	let imageFields: Array<{ reset: () => void } | undefined> = $state([]);
@@ -43,6 +43,7 @@
 			bind:this={imageFields[index]}
 			bind:uploading={imageFieldsUploading[index]}
 			field={myForm.fields.images[index]}
+			schema={imageFile}
 			label="Image:"
 		/>
 	{/each}

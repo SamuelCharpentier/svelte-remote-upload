@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import * as v from 'valibot';
 	import type { RemoteFormField } from '@sveltejs/kit';
 
 	interface Props {
 		/** The remote form field this control is bound to. */
 		field: RemoteFormField<File | string>;
+		/** Schema used to validate the chosen file before uploading. */
+		schema: v.GenericSchema<File>;
 		label?: string;
 		accept?: string;
 		/** Endpoint that accepts the file and returns `{ id }`. */
@@ -15,6 +18,7 @@
 
 	let {
 		field,
+		schema,
 		label = 'File:',
 		accept = 'image/jpeg,image/png',
 		uploadUrl = '/api/upload',
@@ -24,6 +28,9 @@
 	let uploadedId = $state('');
 	let progress = $state(0);
 	let uploadError = $state('');
+	// Issues from validating the chosen file against `schema`, shown for this
+	// field only — the form's own issues stay out of it.
+	let validationIssues = $state<string[]>([]);
 
 	// Upload progress is a JS-only enhancement. Until the component mounts we
 	// render the no-JS variant: a plain file field that posts the File directly.
@@ -49,6 +56,7 @@
 		uploadedId = '';
 		progress = 0;
 		uploadError = '';
+		validationIssues = [];
 	}
 
 	// Upload the file to a dedicated endpoint via XHR so we can report progress.
@@ -83,10 +91,18 @@
 		const file = input.files?.[0];
 
 		uploadError = '';
+		validationIssues = [];
 		uploadedId = '';
 		progress = 0;
 
 		if (!file) return;
+
+		// Validate this field's file before spending bandwidth on an upload.
+		const result = v.safeParse(schema, file);
+		if (!result.success) {
+			validationIssues = result.issues.map((issue) => issue.message);
+			return;
+		}
 
 		uploading = true;
 		try {
@@ -115,6 +131,9 @@
 
 {#each field.issues() ?? [] as issue (issue.message)}
 	<span class="hint">{issue.message}</span>
+{/each}
+{#each validationIssues as message (message)}
+	<span class="hint">{message}</span>
 {/each}
 {#if uploadError}
 	<span class="hint">{uploadError}</span>
