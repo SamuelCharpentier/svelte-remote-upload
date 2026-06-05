@@ -38,6 +38,7 @@
 		uploadedFile = null;
 		progress = 0;
 		uploadError = '';
+		field.set(undefined);
 	}
 
 	// Attachment on the field's label: register this field's upload with the form
